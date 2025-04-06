@@ -31,9 +31,9 @@ const NewsAnalyzer = () => {
     setAnalyzed(false);
 
     try {
-      // Use Gemini API to analyze the news
+      // Updated Gemini API endpoint and request structure
       const API_KEY = "AIzaSyC0vsQCRfEXbATciFuY1Mjdq7D2p7GARZw";
-      const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+      const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro:generateContent";
       
       const prompt = `Analyze the following news content and determine if it's likely real news, potentially misleading, or likely fake news. 
       Provide a credibility assessment (high, medium, or low) and a brief explanation of your reasoning. 
