@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,9 +30,8 @@ const NewsAnalyzer = () => {
     setAnalyzed(false);
 
     try {
-      // Updated Gemini API endpoint and request structure
-      const API_KEY = "AIzaSyC0vsQCRfEXbATciFuY1Mjdq7D2p7GARZw";
-      const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro:generateContent";
+      const API_KEY = "AIzaSyBrVIsLXg97AjmIxMfLJ7PgYDBMhBdxP2E";
+      const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
       
       const prompt = `Analyze the following news content and determine if it's likely real news, potentially misleading, or likely fake news. 
       Provide a credibility assessment (high, medium, or low) and a brief explanation of your reasoning. 
@@ -60,13 +58,7 @@ const NewsAnalyzer = () => {
                 }
               ]
             }
-          ],
-          generationConfig: {
-            temperature: 0.4,
-            topK: 32,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          }
+          ]
         }),
       });
 
@@ -77,23 +69,22 @@ const NewsAnalyzer = () => {
       const data = await response.json();
       console.log("Gemini API response:", data);
       
-      // Extract the text response from Gemini
       const responseText = data.candidates[0]?.content?.parts[0]?.text;
       
-      // Try to extract JSON from the response
+      if (!responseText) {
+        throw new Error("No valid response from the API");
+      }
+      
       let analysisResult;
       try {
-        // Look for JSON pattern in the response
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           analysisResult = JSON.parse(jsonMatch[0]);
         } else {
-          // Fallback if no JSON is found
           throw new Error("No JSON found in response");
         }
       } catch (jsonError) {
         console.error("Error parsing JSON:", jsonError);
-        // Fallback analysis based on keywords in the response
         if (responseText.includes("high credibility") || responseText.includes("likely real")) {
           analysisResult = { credibility: "high", explanation: responseText };
         } else if (responseText.includes("low credibility") || responseText.includes("likely fake")) {
