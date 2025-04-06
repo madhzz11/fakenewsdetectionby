@@ -14,9 +14,10 @@ const NewsAnalyzer = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [credibility, setCredibility] = useState<CredibilityLevel>(null);
   const [analyzed, setAnalyzed] = useState(false);
+  const [analysisDetails, setAnalysisDetails] = useState("");
   const { toast } = useToast();
 
-  const analyzeFakeNews = () => {
+  const analyzeFakeNews = async () => {
     if (newsText.trim().length < 20) {
       toast({
         title: "Not enough text",
@@ -29,25 +30,92 @@ const NewsAnalyzer = () => {
     setIsAnalyzing(true);
     setAnalyzed(false);
 
-    // Simulate analysis with a timeout
-    setTimeout(() => {
-      // For demo purposes, we'll randomly assign credibility
-      // In a real app, this would be replaced with actual ML analysis
-      const randomValue = Math.random();
-      let result: CredibilityLevel;
+    try {
+      // Use Gemini API to analyze the news
+      const API_KEY = "AIzaSyC0vsQCRfEXbATciFuY1Mjdq7D2p7GARZw";
+      const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
       
-      if (randomValue < 0.33) {
-        result = "low";
-      } else if (randomValue < 0.66) {
-        result = "medium";
-      } else {
-        result = "high";
+      const prompt = `Analyze the following news content and determine if it's likely real news, potentially misleading, or likely fake news. 
+      Provide a credibility assessment (high, medium, or low) and a brief explanation of your reasoning. 
+      Be objective and focus on factual accuracy, source credibility, and potential bias.
+      
+      News content: "${newsText}"
+      
+      Format your response as a JSON with two fields:
+      1. "credibility": either "high", "medium", or "low"
+      2. "explanation": your detailed reasoning
+      `;
+
+      const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.4,
+            topK: 32,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Gemini API response:", data);
+      
+      // Extract the text response from Gemini
+      const responseText = data.candidates[0]?.content?.parts[0]?.text;
+      
+      // Try to extract JSON from the response
+      let analysisResult;
+      try {
+        // Look for JSON pattern in the response
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysisResult = JSON.parse(jsonMatch[0]);
+        } else {
+          // Fallback if no JSON is found
+          throw new Error("No JSON found in response");
+        }
+      } catch (jsonError) {
+        console.error("Error parsing JSON:", jsonError);
+        // Fallback analysis based on keywords in the response
+        if (responseText.includes("high credibility") || responseText.includes("likely real")) {
+          analysisResult = { credibility: "high", explanation: responseText };
+        } else if (responseText.includes("low credibility") || responseText.includes("likely fake")) {
+          analysisResult = { credibility: "low", explanation: responseText };
+        } else {
+          analysisResult = { credibility: "medium", explanation: responseText };
+        }
       }
       
-      setCredibility(result);
-      setIsAnalyzing(false);
+      setCredibility(analysisResult.credibility as CredibilityLevel);
+      setAnalysisDetails(analysisResult.explanation);
       setAnalyzed(true);
-    }, 2000);
+    } catch (error) {
+      console.error("Error analyzing news:", error);
+      toast({
+        title: "Analysis failed",
+        description: "Unable to analyze the content. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const getCredibilityInfo = () => {
@@ -100,7 +168,7 @@ const NewsAnalyzer = () => {
           Detect Fake News
         </h1>
         <p className="text-muted-foreground text-center">
-          Paste news content below to analyze its credibility
+          Paste news content below to analyze its credibility using AI
         </p>
       </div>
 
@@ -153,6 +221,14 @@ const NewsAnalyzer = () => {
           <CardContent className="space-y-4">
             <p>{info.description}</p>
             <Progress value={info.score} className={info.bgColor} />
+            
+            {analysisDetails && (
+              <div className="mt-4 p-4 bg-muted rounded-md">
+                <h4 className="font-medium mb-2">AI Analysis:</h4>
+                <p className="text-sm">{analysisDetails}</p>
+              </div>
+            )}
+            
             <div className="pt-4">
               <h4 className="font-medium mb-2">Verification Tips:</h4>
               <ul className="list-disc pl-5 space-y-1 text-sm">
